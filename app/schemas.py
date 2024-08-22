@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, conint
 
 
 class CreateProduct(BaseModel):
@@ -21,3 +21,8 @@ class CreateUser(BaseModel):
     username: str
     email: EmailStr
     password: str
+
+
+class CreateReview(BaseModel):
+    comment: str
+    grade: int = conint(ge=1, le=5)
