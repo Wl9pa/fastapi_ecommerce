@@ -24,5 +24,6 @@ class CreateUser(BaseModel):
 
 
 class CreateReview(BaseModel):
+    product_id: int
     comment: str
     grade: int = conint(ge=1, le=5)

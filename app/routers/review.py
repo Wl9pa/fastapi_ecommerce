@@ -18,3 +18,11 @@ async def all_reviews(db: Annotated[AsyncSession, Depends(get_db)]):
         'reviews': reviews.all(),
         'ratings': ratings.all()
     }
+
+
+@router.get('/products_reviews/{product_id}')
+async def products_reviews(db: Annotated[AsyncSession, Depends(get_db)], product_id: int):
+    reviews = await db.scalars(select(Review).where(Review.product_id == product_id,
+                                                    Review.is_active == True))
+    ratings = await db.scalars(select(Rating).where(Rating.product_id == product_id,
+                                                    Rating.is_active == True))
