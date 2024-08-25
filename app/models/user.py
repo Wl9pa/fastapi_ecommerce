@@ -17,5 +17,5 @@ class User(Base):
     is_supplier = Column(Boolean, default=False)
     is_customer = Column(Boolean, default=True)
 
-    reviews = relationship('Review', back_populates='users')
-    ratings = relationship('Rating', back_populates='users')
+    reviews = relationship('Review', back_populates='user')
+    ratings = relationship('Rating', back_populates='user')
