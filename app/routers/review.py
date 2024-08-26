@@ -23,6 +23,12 @@ async def all_reviews(db: Annotated[AsyncSession, Depends(get_db)]):
 
 @router.get('/products_reviews/{product_id}')
 async def products_reviews(db: Annotated[AsyncSession, Depends(get_db)], product_id: int):
+    product = await db.scalar(select(Product.id).where(Product.id == product_id))
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Product not found'
+        )
     reviews = await db.scalars(select(Review).where(Review.product_id == product_id,
                                                     Review.is_active == True))
     ratings = await db.scalars(select(Rating).where(Rating.product_id == product_id,
@@ -36,6 +42,12 @@ async def products_reviews(db: Annotated[AsyncSession, Depends(get_db)], product
 @router.post('/add_review', status_code=status.HTTP_201_CREATED)
 async def add_reviews(db: Annotated[AsyncSession, Depends(get_db)], review_data: CreateReview,
                       get_user: Annotated[dict, Depends(get_current_user)], product_id: int, ):
+    product = await db.scalar(select(Product).where(Product.id == product_id))
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Product not found'
+        )
     if get_user.get('is_customer'):
         new_review = Review(user_id=get_user.get('id'), product_id=product_id, comment=review_data.comment,
                             comment_date=datetime.now(), is_active=True)
@@ -64,13 +76,28 @@ async def add_reviews(db: Annotated[AsyncSession, Depends(get_db)], review_data:
 async def delete_reviews(review_id: int, db: Annotated[AsyncSession, Depends(get_db)],
                          get_user: Annotated[dict, Depends(get_current_user)]):
     review = await db.scalar(select(Review).where(Review.id == review_id))
+    if review is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Review not found'
+        )
     product_id = review.product_id
     user_id = review.user_id
-
-    await db.execute(update(Review).where(Review.id == review_id).values(is_active=False))
-    await db.execute(update(Rating).where(Rating.product_id == product_id,
+    if get_user.get('is_admin'):
+        await db.execute(update(Review).where(Review.id == review_id).values(is_active=False))
+        await db.execute(update(Rating).where(Rating.product_id == product_id,
                                           Rating.user_id == user_id).values(is_active=False))
-    await db.commit()
-    return {
-        'message': 'Review and rating deactivated'
-    }
+        grades = await db.scalars(select(Rating.grade).where(Rating.product_id == review.product_id,
+                                                             Rating.is_active == True))
+        grade_list = grades.all()
+        updated_rating = sum(grade_list) / len(grade_list) if grade_list else 0
+        await db.execute(update(Product).where(Product.id == review.product_id).values(rating=updated_rating))
+        await db.commit()
+        return {
+            'message': 'Review and rating deactivated'
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='You are not authorized to use this method'
+        )
